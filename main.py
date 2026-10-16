@@ -1,13 +1,11 @@
 import os
 import requests
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, FileResponse
 from openai import AzureOpenAI
 from pydantic import BaseModel
 
 app = FastAPI(title="ISS Tracker API", description="Live ISS position with AI chat")
-templates = Jinja2Templates(directory="templates")
 
 ai_client = AzureOpenAI(
     api_key=os.environ.get("AZURE_AI_KEY"),
@@ -23,8 +21,9 @@ class ChatRequest(BaseModel):
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+def index():
+    with open("templates/index.html", "r") as f:
+        return HTMLResponse(content=f.read())
 
 
 @app.get("/iss")
