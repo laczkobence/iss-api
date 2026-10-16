@@ -2,8 +2,9 @@ import os
 import requests
 from fastapi import FastAPI, HTTPException
 from openai import AzureOpenAI
+from pydantic import BaseModel
 
-app = FastAPI(title="ISS Tracker API", description="Live ISS position with AI commentary")
+app = FastAPI(title="ISS Tracker API", description="Live ISS position with AI chat")
 
 ai_client = AzureOpenAI(
     api_key=os.environ.get("AZURE_AI_KEY"),
@@ -11,39 +12,53 @@ ai_client = AzureOpenAI(
     api_version="2024-11-01-preview"
 )
 
+SYSTEM_PROMPT = "You are a space enthusiast assistant with knowledge about the ISS. You have been given the current ISS position and provided an initial commentary. Continue the conversation naturally, answering questions about the ISS, its location, space travel, or anything related."
+
+
+class ISSRequest(BaseModel):
+    messages: list = []
+
 
 @app.get("/")
 def index():
     return {
         "service": "ISS Tracker API",
-        "version": "1.0",
+        "version": "2.0",
         "endpoints": {
-            "GET /iss": "Get live ISS position with AI commentary"
+            "POST /iss": "Get live ISS position with AI chat. Send empty body for initial commentary, or include messages list to continue conversation."
         }
     }
 
 
-@app.get("/iss")
-def iss():
-    response = requests.get("http://api.open-notify.org/iss-now.json")
-    if response.status_code != 200:
+@app.post("/iss")
+def iss(body: ISSRequest):
+    iss_response = requests.get("http://api.open-notify.org/iss-now.json")
+    if iss_response.status_code != 200:
         raise HTTPException(status_code=503, detail="ISS API unavailable")
 
-    data = response.json()
+    data = iss_response.json()
     lat = data["iss_position"]["latitude"]
     lon = data["iss_position"]["longitude"]
 
+    if not body.messages:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"The ISS is currently at latitude {lat}, longitude {lon}. Where is it? Give a short interesting description and one fun fact."}
+        ]
+    else:
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + body.messages
+
     ai_response = ai_client.chat.completions.create(
         model=os.environ.get("AZURE_AI_MODEL", "gpt-4.1-mini"),
-        messages=[
-            {"role": "system", "content": "You are a space enthusiast assistant. Given ISS coordinates, describe where it is flying over in a short, interesting way. Include the region, ocean or country, and one fun fact about the ISS."},
-            {"role": "user", "content": f"The ISS is currently at latitude {lat}, longitude {lon}. Where is it?"}
-        ],
-        max_tokens=200
+        messages=messages,
+        max_tokens=300
     )
+
+    reply = ai_response.choices[0].message.content
 
     return {
         "latitude": lat,
         "longitude": lon,
-        "commentary": ai_response.choices[0].message.content
+        "reply": reply,
+        "messages": (body.messages or [{"role": "user", "content": f"ISS is at {lat}, {lon}"}]) + [{"role": "assistant", "content": reply}]
     }
