@@ -1,7 +1,7 @@
 import requests
 import pytest
 
-BASE_URL = "https://iss-tracker-api-hueadjdwfqfzd2f0.germanywestcentral-01.azurewebsites.net"
+BASE_URL = "http://localhost:8000"
 
 
 # ── Functional tests ──────────────────────────────────────────────────────────
