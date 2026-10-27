@@ -11,12 +11,3 @@ def iss_response():
 @pytest.fixture(scope="session")
 def iss_data(iss_response):
     return iss_response.json()
-
-@pytest.fixture(scope="session")
-def chat_response():
-    payload = {"messages": [{"role": "user", "content": "Where is the ISS?"}]}
-    return requests.post(f"{BASE_URL}/iss/chat", json=payload)
-
-@pytest.fixture(scope="session")
-def chat_data(chat_response):
-    return chat_response.json()
