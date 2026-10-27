@@ -60,6 +60,8 @@ def iss():
 
 @app.post("/iss/chat")
 def iss_chat(body: ChatRequest):
+    if len(body.messages) == 0:
+        raise HTTPException(status_code=422, detail="messages list cannot be empty")
     iss_response = requests.get("http://api.open-notify.org/iss-now.json")
     if iss_response.status_code != 200:
         raise HTTPException(status_code=503, detail="ISS API unavailable")
